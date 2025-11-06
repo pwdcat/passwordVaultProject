@@ -239,6 +239,46 @@ class PasswordManager:
                 'error': f'Failed to unlock vault: {str(e)}'
             }
     
+    def change_master_password(self, current_password: str, new_password: str) -> Dict:
+        # Check
+        current_hash = hashlib.sha256(current_password.encode()).hexdigest()
+        if current_hash != self.master_password_hash:
+            return {'success': False, 'error': 'Current master password is incorrect'}
+        if len(new_password) < 6 or current_password == new_password:
+            return {'success': False, 'error': 'New password invalid'}
+
+        try:
+            with sqlite3.connect(self.database_path) as conn:
+                cursor = conn.cursor()
+
+                # Load all passwords and re-encrypt them
+                cursor.execute('SELECT id, password FROM passwords')
+                passwords = cursor.fetchall()
+
+                new_key = Fernet.generate_key()
+                fernet = Fernet(new_key)
+
+                for password_id, encrypted_password in passwords:
+                    decrypted = Fernet(self.key).decrypt(encrypted_password.encode()).decode()
+                    reencrypted = fernet.encrypt(decrypted.encode()).decode()
+                    cursor.execute('UPDATE passwords SET password = ? WHERE id = ?', (reencrypted, password_id))
+
+                # Update master
+                new_hash = hashlib.sha256(new_password.encode()).hexdigest()
+                cursor.execute('UPDATE vault_config SET value = ? WHERE key = ?', (new_hash, 'master_hash'))
+                conn.commit()
+
+            # Update
+            self.master_password_hash = new_hash
+            self.key = new_key
+            with open(self.key_path, 'wb') as f:
+                f.write(self.key)
+
+            return {'success': True, 'message': 'Master password changed successfully'}
+
+        except Exception as e:
+            return {'success': False, 'error': f'Failed to change master password: {str(e)}'}
+
     def lock_vault(self) -> Dict:
         self.is_unlocked = False
         self.master_password_hash = None

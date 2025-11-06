@@ -107,6 +107,9 @@ def export_backup(backup_path):
 def reset_vault():
     return get_vault_instance().reset_vault()
 
+def change_master_password(current_password, new_password):
+    return get_vault_instance().change_master_password(current_password, new_password)
+
 #
 # HELPERS
 #
