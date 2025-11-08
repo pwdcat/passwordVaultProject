@@ -20,9 +20,11 @@ class PasswordManager:
         self.is_unlocked = False
         self.master_password_hash = None
         
-        # File paths
-        self.key_path = "testkey.key"
-        self.database_path = "vault.db"
+        # File paths (relative to project root)
+        # Get project root (parent of Backend directory)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.key_path = os.path.join(project_root, "testkey.key")
+        self.database_path = os.path.join(project_root, "vault.db")
         
         # Auto-lock functionality
         self.auto_lock_minutes = 5
